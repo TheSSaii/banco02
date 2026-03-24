@@ -3,6 +3,7 @@ package com.sistemabancario02.banco02.service;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.sistemabancario02.banco02.repository.*;
 import com.sistemabancario02.banco02.entity.*;
@@ -20,7 +21,6 @@ public class MovimientoService {
     //se inyectan los repositorios
     private final MovimientoRepository movimientoRepository;
     private final CuentaRepository cuentaRepository;
-    private final ClienteRepository clienteRepository;
 
     //Metodo para registrar movimientos en la base de datos
     public Movimiento registrarMovimiento(Cuenta cuenta, double monto, TipoMovimiento tipoMovimiento) {
@@ -42,21 +42,8 @@ public class MovimientoService {
 
     }
 
-    //Metodo basico para realizar un retiro en una cuenta, no tiene alguna verificacion aún
-    public boolean realizarRetiro(Cuenta cuenta, double monto){
-        //Se verifica que el monto no sea mayor a la cantidad de saldo en la cuenta y mayor que cero
-        if (cuenta.getSaldo() >= monto && monto > 0){
-            cuenta.setSaldo(cuenta.getSaldo() - monto);
-            cuentaRepository.save(cuenta);
-            registrarMovimiento(cuenta, monto ,TipoMovimiento.RETIRO);
-            return true;
-        } else {
-            return false;
-
-        } 
-    }
-
     //Se declara el metodo que realiza las transferencias con los datos requeridos y la almacena en DB
+    @Transactional
     public boolean realizarTransferencia(Cuenta origen, double monto , Cuenta destino){
         //Se valida que el saldo sea mayor que el monto a transferir y que sea mayor que cero y que el destino sea diferente al origen
         if (origen.getSaldo() >= monto && monto > 0 && !origen.equals(destino)){
@@ -85,6 +72,7 @@ public class MovimientoService {
 
     /*
     * Metodo para realizar una consignacion en una cuenta*/
+    @Transactional
     public boolean realizarConsignacion(Cuenta cuenta, double monto){
         if (monto <= 0){
             throw new IllegalArgumentException("El monto debe ser mayor a cero");
@@ -94,23 +82,6 @@ public class MovimientoService {
         registrarMovimiento(cuenta,monto , TipoMovimiento.CONSIGNACION);
         return true;
 
-    }
-
-    public boolean realizarRetiroVerificado(String identificacionCliente, String numeroCuenta, double monto) {
-        Cliente cliente = clienteRepository.findByIdentificacionCliente(identificacionCliente)
-                .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
-        Cuenta cuenta = cuentaRepository.findByNumeroCuenta(numeroCuenta)
-                .orElseThrow(() -> new RuntimeException("Cuenta no encontrada"));
-
-        if (!cuenta.getCliente().equals(cliente)) {
-            throw new RuntimeException("La cuenta no pertenece al cliente");
-        }
-        if (cliente.isBloqueado()) {
-            throw new RuntimeException("El cliente o su cuenta estan bloqueados");
-        }
-
-        // Call the simple withdrawal method after validations
-        return realizarRetiro(cuenta, monto);
     }
 
     /*Funcionalidad de verificacion del exito del movimiento ( en proceso )....
