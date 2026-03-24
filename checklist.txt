@@ -1,0 +1,25 @@
+Checklist
+Te conviene atacarlo en este orden:
+
+Seguridad inmediata
+Reactivar validaciones de pertenencia de cuenta en CajeroController.java.
+Corregir redirects defectuosos en CajeroController.java.
+Sacar credenciales de application.properties y pasar a variables de entorno/perfiles.
+Verificar que consulta, retiro y transferencia sólo operen sobre cuentas del cliente autenticado.
+Admin utilizable
+Crear admin/crear-cliente.html.
+Crear admin/crear-cuenta.html.
+Crear admin/desbloquear.html.
+Revisar referencias de estilos en index.html.
+Lógica bancaria consistente
+Elegir una sola implementación de retiro entre MovimientoService.java y RetiroService.java.
+Marcar operaciones críticas con @Transactional.
+Centralizar el registro de movimientos.
+Alinear movimientos.html con TipoMovimiento.java.
+Seguridad de PIN
+Introducir BCryptPasswordEncoder.
+Cambiar login y cambio de clave para usar hash.
+Definir migración de PINs existentes.
+Robustez final
+Migrar double a BigDecimal.
+Agregar pruebas de bloqueo, saldo insuficiente, transferencia y pertenencia.
