@@ -8,6 +8,8 @@
 <body>
 <div class="container">
     <h2><i class="fas fa-wallet"></i> Tus cuentas</h2>
+    <div th:if="${mensaje}" class="mensaje-exito" th:text="${mensaje}"></div>
+    <div th:if="${error}" class="mensaje-error" th:text="${error}"></div>
 
     <ul class="cuenta-list">
         <li th:each="cuenta : ${cuentas}">

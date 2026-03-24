@@ -1,20 +1,20 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>Transferencia Bancaria</title>
+    <title>Transferencia bancaria</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" th:href="@{/styles/cajero.css}">
 </head>
 <body>
 <div class="container">
-    <h2><i class="fas fa-exchange-alt"></i> Realizar Transferencia</h2>
+    <h2><i class="fas fa-exchange-alt"></i> Realizar transferencia</h2>
 
     <div th:if="${mensaje}" class="mensaje-exito" th:text="${mensaje}"></div>
     <div th:if="${error}" class="mensaje-error" th:text="${error}"></div>
 
     <form th:action="@{/cajero/transferir}" method="post">
         <div class="form-group">
-            <label for="numeroCuentaOrigen"><i class="fas fa-credit-card"></i> Cuenta Origen:</label>
+            <label for="numeroCuentaOrigen"><i class="fas fa-credit-card"></i> Cuenta origen:</label>
             <select name="numeroCuentaOrigen" id="numeroCuentaOrigen" required>
                 <option th:each="cuenta : ${cuentasOrigen}"
                         th:value="${cuenta.numeroCuenta}"
@@ -24,7 +24,7 @@
         </div>
 
         <div class="form-group">
-            <label for="numeroCuentaDestino"><i class="fas fa-credit-card"></i> Cuenta Destino:</label>
+            <label for="numeroCuentaDestino"><i class="fas fa-credit-card"></i> Cuenta destino:</label>
             <input type="text" id="numeroCuentaDestino" name="numeroCuentaDestino" required>
             <span id="titularDestino" class="helper-text"></span>
         </div>
@@ -37,10 +37,10 @@
         <button type="submit">Transferir</button>
     </form>
 
-    <a th:href="@{/cajero/menu}" class="btn-secondary"><i class="fas fa-arrow-left"></i> Volver al menú</a>
+    <p>La cuenta origen debe ser una de sus cuentas. La cuenta destino puede pertenecer a otro cliente.</p>
+    <a th:href="@{/cajero/menu}" class="btn-secondary"><i class="fas fa-arrow-left"></i> Volver al menu</a>
 </div>
 
-<!-- Script para validación de cuenta destino -->
 <script th:inline="javascript">
     document.getElementById('numeroCuentaDestino').addEventListener('blur', function() {
         const numero = this.value;
@@ -59,7 +59,6 @@
                 });
         }
     });
-</script><!DOCTYPE html>
+</script>
 </body>
 </html>
-

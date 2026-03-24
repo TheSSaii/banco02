@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>Movimientos de Cuenta</title>
+    <title>Movimientos de cuenta</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" th:href="@{/styles/cajero.css}">
 </head>
@@ -11,6 +11,9 @@
         <i class="fas fa-list-alt"></i>
         Movimientos de la cuenta <span th:text="${numeroCuentaActual}"></span>
     </h2>
+
+    <div th:if="${mensaje}" class="mensaje-exito" th:text="${mensaje}"></div>
+    <div th:if="${error}" class="mensaje-error" th:text="${error}"></div>
 
     <div th:if="${#lists.isEmpty(movimientos)}" class="mensaje-info">
         <i class="fas fa-info-circle"></i> No hay movimientos para mostrar
@@ -26,16 +29,18 @@
             </tr>
             </thead>
             <tbody>
-            <tr th:each="mov : ${movimientos}">
+            <tr th:each="mov : ${movimientos}"
+                th:with="esSalida=${mov.tipo.name() == 'RETIRO' or mov.monto < 0},
+                         etiquetaTipo=${mov.tipo.name() == 'TRANSFERENCIA' ? (mov.monto < 0 ? 'Transferencia enviada' : 'Transferencia recibida') : (mov.tipo.name() == 'CONSIGNACION' ? 'Consignacion' : (mov.tipo.name() == 'RETIRO' ? 'Retiro' : 'Consulta'))}">
                 <td th:text="${#temporals.format(mov.fecha, 'dd/MM/yyyy HH:mm')}"></td>
                 <td>
-                    <span th:class="${mov.tipo.name() == 'DEBITO' ? 'debito' : 'credito'}">
-                        <i th:class="${mov.tipo.name() == 'DEBITO' ? 'fas fa-minus-circle' : 'fas fa-plus-circle'}"></i>
-                        <span th:text="${mov.tipo}"></span>
+                    <span th:class="${esSalida ? 'monto-debito' : 'monto-credito'}">
+                        <i th:class="${esSalida ? 'fas fa-minus-circle' : 'fas fa-plus-circle'}"></i>
+                        <span th:text="${etiquetaTipo}"></span>
                     </span>
                 </td>
-                <td th:class="${mov.tipo.name() == 'DEBITO' ? 'monto-debito' : 'monto-credito'}"
-                    th:text="${mov.tipo.name() == 'DEBITO' ? '-' : '+'} + ${#numbers.formatDecimal(mov.monto, 1, 2)}">
+                <td th:class="${esSalida ? 'monto-debito' : 'monto-credito'}"
+                    th:text="${(esSalida ? '-' : '+') + #numbers.formatDecimal(T(java.lang.Math).abs(mov.monto), 1, 2)}">
                 </td>
             </tr>
             </tbody>
@@ -47,7 +52,7 @@
             <i class="fas fa-list"></i> Ver todas las cuentas
         </a>
         <a th:href="@{/cajero/menu}" class="btn-secondary">
-            <i class="fas fa-home"></i> Volver al menú
+            <i class="fas fa-home"></i> Volver al menu
         </a>
     </div>
 </div>

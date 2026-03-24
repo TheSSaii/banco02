@@ -8,6 +8,8 @@
 <body>
 <div class="container">
     <h2><i class="fas fa-university"></i> Bienvenido, <span th:text="${cliente.nombre}">Cliente</span></h2>
+    <div th:if="${mensaje}" class="mensaje-exito" th:text="${mensaje}"></div>
+    <div th:if="${error}" class="mensaje-error" th:text="${error}"></div>
 
     <div class="menu-grid">
         <a th:href="@{/cajero/consultas}" class="menu-item">

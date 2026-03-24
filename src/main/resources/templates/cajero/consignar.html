@@ -1,20 +1,20 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>Consignación</title>
+    <title>Consignacion</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" th:href="@{/styles/cajero.css}">
 </head>
 <body>
 <div class="container">
-    <h2><i class="fas fa-hand-holding-usd"></i> Realizar Consignación</h2>
+    <h2><i class="fas fa-hand-holding-usd"></i> Realizar consignacion</h2>
 
     <div th:if="${mensaje}" class="mensaje-exito" th:text="${mensaje}"></div>
     <div th:if="${error}" class="mensaje-error" th:text="${error}"></div>
 
     <form th:action="@{/cajero/consignar}" method="post">
         <div class="form-group">
-            <label for="numeroCuenta"><i class="fas fa-credit-card"></i> Número de Cuenta:</label>
+            <label for="numeroCuenta"><i class="fas fa-credit-card"></i> Numero de cuenta:</label>
             <input type="text" id="numeroCuenta" name="numeroCuenta" required>
             <span id="titularCuenta" class="helper-text"></span>
         </div>
@@ -27,10 +27,10 @@
         <button type="submit">Consignar</button>
     </form>
 
-    <a th:href="@{/cajero/menu}" class="btn-secondary"><i class="fas fa-arrow-left"></i> Volver al menú</a>
+    <p>Puede consignar a cualquier cuenta existente. Verifique el titular antes de confirmar.</p>
+    <a th:href="@{/cajero/menu}" class="btn-secondary"><i class="fas fa-arrow-left"></i> Volver al menu</a>
 </div>
 
-<!-- Script para validación de cuenta -->
 <script th:inline="javascript">
     document.getElementById('numeroCuenta').addEventListener('blur', function() {
         const numero = this.value;

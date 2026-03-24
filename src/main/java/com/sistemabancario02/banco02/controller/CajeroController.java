@@ -24,10 +24,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-
 @Controller
 @RequiredArgsConstructor
-@RequestMapping("/cajero") // Mapeo base para todas las rutas de este controlador
+@RequestMapping("/cajero")
 public class CajeroController {
 
     private final ClienteService clienteService;
@@ -35,23 +34,22 @@ public class CajeroController {
     private final MovimientoService movimientoService;
     private final RetiroService retiroService;
 
-    // --- Métodos de Login y Logout ---
+    private Cliente obtenerClienteAutenticado(HttpSession session) {
+        return (Cliente) session.getAttribute("cliente");
+    }
 
-    /**
-     * Muestra el formulario de inicio de sesión del cajero.
-     * Los 'flash attributes' (como 'error' o 'mensaje') de una redirección previa
-     * se añaden automáticamente al Model para esta solicitud.
-     */
+    private boolean cuentaPerteneceAlCliente(Cuenta cuenta, Cliente cliente) {
+        if (cuenta == null || cuenta.getCliente() == null || cliente == null) {
+            return false;
+        }
+        return cuenta.getCliente().getId() == cliente.getId();
+    }
+
     @GetMapping("/login")
     public String mostrarLogin(Model model) {
-    return "cajero/login";  // Correct, maintains consistency
-}
+        return "cajero/login";
+    }
 
-    /**
-     * Procesa la solicitud de inicio de sesión (POST).
-     * Valida las credenciales, maneja bloqueos de cuenta y gestiona intentos fallidos.
-     * Almacena el cliente autenticado en la sesión y redirige al menú principal.
-     */
     @PostMapping("/login")
     public String login(@RequestParam String numeroCuenta,
                         @RequestParam String pin,
@@ -60,7 +58,6 @@ public class CajeroController {
 
         Optional<Cuenta> cuentaOptional = cuentaService.buscarPorNumero(numeroCuenta);
 
-        // 1. Verificar si la cuenta existe
         if (cuentaOptional.isEmpty()) {
             redirectAttributes.addFlashAttribute("error", "Cuenta no encontrada.");
             return "redirect:/cajero/login";
@@ -69,50 +66,38 @@ public class CajeroController {
         Cuenta cuenta = cuentaOptional.get();
         Cliente cliente = cuenta.getCliente();
 
-        // 2. Verificar si el cliente está bloqueado
         if (cliente.isBloqueado()) {
             redirectAttributes.addFlashAttribute("error", "Cuenta bloqueada. Contacte a su banco.");
             return "redirect:/cajero/login";
         }
 
-        // 3. Verificar el PIN (ADVERTENCIA: Considera implementar HASHING para seguridad real)
         if (!cliente.getPin().equals(pin)) {
             clienteService.incrementarIntento(cliente);
 
             if (cliente.getIntentosFallidos() >= 3) {
                 clienteService.bloquearCliente(cliente);
-                redirectAttributes.addFlashAttribute("error", "Cuenta bloqueada por múltiples intentos fallidos.");
+                redirectAttributes.addFlashAttribute("error", "Cuenta bloqueada por multiples intentos fallidos.");
             } else {
                 redirectAttributes.addFlashAttribute("error", "PIN incorrecto. Intentos restantes: " + (3 - cliente.getIntentosFallidos()));
             }
             return "redirect:/cajero/login";
         }
 
-        // 4. Si el login es exitoso: reiniciar intentos y guardar cliente en sesión
         clienteService.reiniciarIntentos(cliente);
         session.setAttribute("cliente", cliente);
 
         return "redirect:/cajero/menu";
     }
 
-    /**
-     * Invalida la sesión del usuario y lo redirige a la página de login.
-     */
     @GetMapping("/logout")
     public String logout(HttpSession session) {
         session.invalidate();
         return "redirect:/cajero/login";
     }
 
-    // --- Métodos de Navegación del Menú Principal ---
-
-    /**
-     * Muestra el menú principal del cajero.
-     * Requiere que el cliente esté autenticado en la sesión.
-     */
     @GetMapping("/menu")
     public String menu(HttpSession session, Model model) {
-        Cliente cliente = (Cliente) session.getAttribute("cliente");
+        Cliente cliente = obtenerClienteAutenticado(session);
         if (cliente == null) {
             return "redirect:/cajero/login";
         }
@@ -122,31 +107,24 @@ public class CajeroController {
         return "cajero/menu";
     }
 
-    // --- Métodos de Consultas ---
-
-    /**
-     * Muestra la página de consultas de cuentas.
-     * Requiere autenticación.
-     */
     @GetMapping("/consultas")
     public String consultas(Model model, HttpSession session) {
-        Cliente cliente = (Cliente) session.getAttribute("cliente");
+        Cliente cliente = obtenerClienteAutenticado(session);
         if (cliente == null) {
-            return "redirect:/cajero/login"; // Faltaba el slash inicial
+            return "redirect:/cajero/login";
         }
         model.addAttribute("cuentas", cuentaService.buscarPorCliente(cliente));
         return "cajero/consultas";
     }
 
-    /**
-     * Muestra los movimientos de una cuenta específica.
-     * Requiere autenticación.
-     */
     @GetMapping("/movimientos/{numero}")
-    public String movimientos(@PathVariable String numero, Model model, HttpSession session, RedirectAttributes redirectAttributes) {
-        Cliente clienteSesion = (Cliente) session.getAttribute("cliente");
+    public String movimientos(@PathVariable String numero,
+                              Model model,
+                              HttpSession session,
+                              RedirectAttributes redirectAttributes) {
+        Cliente clienteSesion = obtenerClienteAutenticado(session);
         if (clienteSesion == null) {
-            return "redirect:cajero/login";
+            return "redirect:/cajero/login";
         }
 
         try {
@@ -154,20 +132,14 @@ public class CajeroController {
 
             if (cuentaOptional.isEmpty()) {
                 redirectAttributes.addFlashAttribute("error", "Cuenta no encontrada.");
-                return "redirect:/ajero/consultas";
+                return "redirect:/cajero/consultas";
             }
 
             Cuenta cuenta = cuentaOptional.get();
-            Cliente clienteDeLaCuenta = cuenta.getCliente();
-
-            // LÍNEA CLAVE: ASEGÚRATE DE QUE getId() DEVUELVA 'Long' (objeto) y no 'long' (primitivo)
-            // Si getId() devuelve 'Long', esta línea es correcta.
-            // Si getId() devuelve 'long', DEBERÁS CAMBIAR A: clienteDeLaCuenta.getId() != clienteSesion.getId()
-            // Y SIEMPRE ASEGURARTE QUE NINGUNO ES NULL ANTES DE ACCEDER A getId()
-           /* if (clienteDeLaCuenta == null || !clienteDeLaCuenta.getId().equals(clienteSesion.getId())) { //
+            if (!cuentaPerteneceAlCliente(cuenta, clienteSesion)) {
                 redirectAttributes.addFlashAttribute("error", "Cuenta no encontrada o no pertenece a su usuario.");
                 return "redirect:/cajero/consultas";
-            }*/
+            }
 
             var movimientos = movimientoService.buscarPorCuenta(numero);
             model.addAttribute("movimientos", movimientos);
@@ -175,24 +147,17 @@ public class CajeroController {
             return "cajero/movimientos";
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "No fue posible obtener los movimientos: " + e.getMessage());
-            return "redirect:cajero/consultas";
+            return "redirect:/cajero/consultas";
         }
     }
 
-    // --- Métodos de Retiro ---
-
-    /**
-     * Muestra el formulario para realizar retiros.
-     * Requiere autenticación.
-     */
     @GetMapping("/retiro")
     public String mostrarFormularioRetiro(Model model, HttpSession session) {
-        Cliente cliente = (Cliente) session.getAttribute("cliente");
+        Cliente cliente = obtenerClienteAutenticado(session);
         if (cliente == null) {
             return "redirect:/cajero/login";
         }
 
-        // Agregamos tanto el cliente como sus cuentas al modelo
         model.addAttribute("cliente", cliente);
         model.addAttribute("cuentas", cuentaService.buscarPorCliente(cliente));
         return "cajero/retiro";
@@ -205,11 +170,17 @@ public class CajeroController {
                                  HttpSession session,
                                  RedirectAttributes redirectAttributes) {
         try {
-            // Verificar que el cliente en sesión coincida con la identificación
-            Cliente clienteSesion = (Cliente) session.getAttribute("cliente");
+            Cliente clienteSesion = obtenerClienteAutenticado(session);
             if (clienteSesion == null || !clienteSesion.getIdentificacionCliente().equals(identificacionCliente)) {
-                redirectAttributes.addFlashAttribute("error", "Sesión inválida o datos inconsistentes.");
+                redirectAttributes.addFlashAttribute("error", "Sesion invalida o datos inconsistentes.");
                 return "redirect:/cajero/login";
+            }
+
+            Cuenta cuenta = cuentaService.buscarPorNumero(numeroCuenta)
+                    .orElseThrow(() -> new RuntimeException("Cuenta no encontrada."));
+            if (!cuentaPerteneceAlCliente(cuenta, clienteSesion)) {
+                redirectAttributes.addFlashAttribute("error", "La cuenta seleccionada no pertenece a su usuario.");
+                return "redirect:/cajero/retiro";
             }
 
             retiroService.realizarRetiro(identificacionCliente, numeroCuenta, monto);
@@ -221,16 +192,9 @@ public class CajeroController {
         }
     }
 
-
-    // --- Métodos de Consignación ---
-
-    /**
-     * Muestra el formulario para realizar consignaciones.
-     * Requiere autenticación.
-     */
     @GetMapping("/consignar")
     public String mostrarFormularioConsignacion(HttpSession session, Model model) {
-        Cliente cliente = (Cliente) session.getAttribute("cliente");
+        Cliente cliente = obtenerClienteAutenticado(session);
         if (cliente == null) {
             return "redirect:/cajero/login";
         }
@@ -239,20 +203,26 @@ public class CajeroController {
         return "cajero/consignar";
     }
 
-
-    /**
-     * Procesa la solicitud de consignación (POST).
-     */
     @PostMapping("/consignar")
     public String consignar(@RequestParam String numeroCuenta,
                             @RequestParam double monto,
+                            HttpSession session,
                             RedirectAttributes redirectAttributes) {
+        Cliente cliente = obtenerClienteAutenticado(session);
+        if (cliente == null) {
+            return "redirect:/cajero/login";
+        }
+
         try {
             Cuenta cuenta = cuentaService.buscarPorNumero(numeroCuenta)
-                    .orElseThrow(() -> new RuntimeException("Cuenta de destino no encontrada."));
+                    .orElseThrow(() -> new RuntimeException("Cuenta no encontrada."));
+            if (!cuentaPerteneceAlCliente(cuenta, cliente)) {
+                redirectAttributes.addFlashAttribute("error", "La cuenta seleccionada no pertenece a su usuario.");
+                return "redirect:/cajero/consignar";
+            }
 
             movimientoService.realizarConsignacion(cuenta, monto);
-            redirectAttributes.addFlashAttribute("mensaje", "Consignación exitosa. Nuevo saldo: " + cuenta.getSaldo());
+            redirectAttributes.addFlashAttribute("mensaje", "Consignacion exitosa. Nuevo saldo: " + cuenta.getSaldo());
             return "redirect:/cajero/menu";
         } catch (RuntimeException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
@@ -262,15 +232,9 @@ public class CajeroController {
         return "redirect:/cajero/consignar";
     }
 
-    // --- Métodos de Transferencia ---
-
-    /**
-     * Muestra el formulario para realizar transferencias.
-     * Requiere autenticación.
-     */
     @GetMapping("/transferir")
     public String mostrarFormularioTransferencia(Model model, HttpSession session) {
-        Cliente cliente = (Cliente) session.getAttribute("cliente");
+        Cliente cliente = obtenerClienteAutenticado(session);
         if (cliente == null) {
             return "redirect:/cajero/login";
         }
@@ -279,17 +243,13 @@ public class CajeroController {
         return "cajero/transferir";
     }
 
-    /**
-     * Procesa la solicitud de transferencia (POST).
-     * Requiere seleccionar una cuenta origen del cliente logueado y una cuenta destino.
-     */
     @PostMapping("/transferir")
     public String transferir(@RequestParam String numeroCuentaOrigen,
                              @RequestParam String numeroCuentaDestino,
                              @RequestParam double monto,
                              HttpSession session,
                              RedirectAttributes redirectAttributes) {
-        Cliente cliente = (Cliente) session.getAttribute("cliente");
+        Cliente cliente = obtenerClienteAutenticado(session);
         if (cliente == null) {
             return "redirect:/cajero/login";
         }
@@ -297,16 +257,15 @@ public class CajeroController {
         try {
             Cuenta origen = cuentaService.buscarPorNumero(numeroCuentaOrigen)
                     .orElseThrow(() -> new RuntimeException("Cuenta origen no encontrada."));
-    /*
-            if (!origen.getCliente().getId().equals(cliente.getId())) {
+            if (!cuentaPerteneceAlCliente(origen, cliente)) {
                 throw new RuntimeException("La cuenta origen no pertenece a su usuario.");
-            } */
+            }
 
             Cuenta destino = cuentaService.buscarPorNumero(numeroCuentaDestino)
                     .orElseThrow(() -> new RuntimeException("Cuenta destino no encontrada."));
 
             if (movimientoService.realizarTransferencia(origen, monto, destino)) {
-                redirectAttributes.addFlashAttribute("mensaje", "Transferencia realizada con éxito.");
+                redirectAttributes.addFlashAttribute("mensaje", "Transferencia realizada con exito.");
                 return "redirect:/cajero/menu";
             } else {
                 redirectAttributes.addFlashAttribute("error", "No se pudo realizar la transferencia (ej. saldo insuficiente).");
@@ -320,65 +279,51 @@ public class CajeroController {
         return "redirect:/cajero/transferir";
     }
 
-    // --- Métodos para Obtener Titular (Generalmente para AJAX) ---
-
-    /**
-     * Endpoint para obtener el nombre del titular de una cuenta por su número.
-     * Útil para funcionalidades AJAX (ej. autocompletar en transferencias).
-     */
     @GetMapping("/titular")
     @ResponseBody
-    public Map<String, String> obtenerTitular(@RequestParam String numero){
-        return  cuentaService.buscarPorNumero(numero)
+    public Map<String, String> obtenerTitular(@RequestParam String numero, HttpSession session) {
+        Cliente cliente = obtenerClienteAutenticado(session);
+        if (cliente == null) {
+            return Map.of();
+        }
+
+        return cuentaService.buscarPorNumero(numero)
+                .filter(cuenta -> cuentaPerteneceAlCliente(cuenta, cliente))
                 .map(cuenta -> Map.of("nombre", cuenta.getCliente().getNombre()))
                 .orElse(Map.of());
     }
 
-    // --- Métodos de Cambio de Clave ---
-
-    /**
-     * Muestra el formulario para cambiar la clave (PIN) del cliente.
-     * Requiere autenticación.
-     */
     @GetMapping("/cambiar-clave")
     public String mostrarFormularioCambioClave(HttpSession session, Model model) {
-        Cliente cliente = (Cliente) session.getAttribute("cliente");
+        Cliente cliente = obtenerClienteAutenticado(session);
         if (cliente == null) {
-            return "redirect:/cajero/login";  // Corregido el redirect
+            return "redirect:/cajero/login";
         }
         model.addAttribute("cliente", cliente);
         return "cajero/cambiar-clave";
     }
 
-
-    /**
-     * Procesa la solicitud de cambio de clave (POST).
-     * Valida la clave actual y la confirmación de la nueva clave.
-     */
     @PostMapping("/cambiar-clave")
     public String cambiarClave(@RequestParam String claveActual,
                                @RequestParam String nuevaClave,
                                @RequestParam String confirmarClave,
                                HttpSession session,
-                               RedirectAttributes redirectAttributes){
-        Cliente cliente = (Cliente) session.getAttribute("cliente");
-        if (cliente == null){
-        return "redirect:/cajero/login";  // Fixed redirect path
-    }
+                               RedirectAttributes redirectAttributes) {
+        Cliente cliente = obtenerClienteAutenticado(session);
+        if (cliente == null) {
+            return "redirect:/cajero/login";
+        }
 
-        // 1. Verificar clave actual (ADVERTENCIA: Considerar HASHING)
         if (!cliente.getPin().equals(claveActual)) {
             redirectAttributes.addFlashAttribute("error", "Clave actual incorrecta.");
             return "redirect:/cajero/cambiar-clave";
         }
 
-        // 2. Verificar que las nuevas claves coincidan
         if (!nuevaClave.equals(confirmarClave)) {
             redirectAttributes.addFlashAttribute("error", "Las nuevas claves no coinciden.");
             return "redirect:/cajero/cambiar-clave";
         }
 
-        // 3. Cambiar el PIN a través del servicio
         try {
             clienteService.cambiarPin(cliente, nuevaClave);
             session.setAttribute("cliente", cliente);

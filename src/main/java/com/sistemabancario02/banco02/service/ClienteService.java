@@ -85,6 +85,12 @@ public class ClienteService{
 
     //Metodo para cambiar el pin y guardar el nuevo valor
     public void cambiarPin(Cliente cliente, String nuevoPin){
+        if (nuevoPin == null || !nuevoPin.matches("\\d{4}")) {
+            throw new RuntimeException("La nueva clave debe tener exactamente 4 digitos numericos.");
+        }
+        if (nuevoPin.equals(cliente.getPin())) {
+            throw new RuntimeException("La nueva clave debe ser diferente a la actual.");
+        }
         cliente.setPin(nuevoPin);
         clienteRepository.save(cliente);
     }
